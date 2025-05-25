@@ -2,6 +2,7 @@ import * as path from 'path'
 import * as fs from 'fs/promises'
 import fetch from 'node-fetch'
 import extract from 'extract-zip'
+import * as tar from 'tar'
 
 type Platform = 'windows' | 'mac' | 'linux'
 interface DownloadableFile {
@@ -79,7 +80,9 @@ async function downloadJDK(destDir: string): Promise<void> {
   const jdkDestPath = path.join(destDir, jdkFileName)
 
   await downloadFile(jdkUrl, jdkDestPath)
-  await extractZip(jdkDestPath, destDir)
+  platform === 'windows'
+    ? await extractZip(jdkDestPath, destDir)
+    : await extractTarGz(jdkDestPath, destDir)
   await fs.rename(path.join(destDir, `jdk-21.0.7+6`), path.join(destDir, 'jdk-21'))
   await fs.rm(jdkDestPath)
 }
@@ -101,6 +104,19 @@ async function extractZip(zipPath: string, destDir: string): Promise<void> {
     console.log('Extraction complete')
   } catch (err) {
     console.error('Error extracting zip:', err)
+  }
+}
+
+async function extractTarGz(tarGzPath: string, destDir: string): Promise<void> {
+  try {
+    await tar.x({
+      file: tarGzPath,
+      cwd: destDir,
+    });
+    console.log(`Extraction of ${tarGzPath} to ${destDir} complete.`);
+  } catch (err) {
+    console.error(`Error extracting tar.gz ${tarGzPath}:`, err);
+    throw err;
   }
 }
 

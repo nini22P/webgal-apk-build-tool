@@ -21,8 +21,16 @@ const exportApk = async (
 
   const apkEditorPath = path.join(libPath, 'APKEditor.jar')
   const webgalTemplateApkPath = path.join(libPath, 'webgal-template.apk')
-  const javaPath = await getPortableJavaPath(libPath)
+
+  const portableJava = await getPortableJavaPath(libPath)
+  if (!portableJava) {
+    throw new Error('Could not find portable Java in the specified libPath')
+  }
+
+  const { javaPath, keytoolPath } = portableJava
   const { apksignerPath, zipalignPath, hasApksigner, hasZipalign } = await getToolPaths(libPath)
+
+  await createKeystore(keytoolPath, keystore, '10000', 'CN=Android Debug,O=Android,C=US') // 测试用
 
   const buildPath = path.join(outputPath, 'build')
 
@@ -148,6 +156,7 @@ const exportApk = async (
     hasApksigner
       && hasKeystore
       && await signApk(
+        javaPath,
         apksignerPath,
         keystore,
         alignedApkPath,
@@ -166,16 +175,20 @@ export default exportApk
 
 export async function getPortableJavaPath(libDir: string) {
   let javaPath: string | null = null
+  let keytoolPath: string | null = null
 
   switch (process.platform) {
     case 'win32':
       javaPath = path.join(libDir, 'jdk-21', 'bin', 'java.exe')
+      keytoolPath = path.join(libDir, 'jdk-21', 'bin', 'keytool.exe')
       break
     case 'darwin':
       javaPath = path.join(libDir, 'jdk-21', 'Contents', 'Home', 'bin', 'java')
+      keytoolPath = path.join(libDir, 'jdk-21', 'Contents', 'Home', 'bin', 'keytool')
       break
     case 'linux':
       javaPath = path.join(libDir, 'jdk-21', 'bin', 'java')
+      keytoolPath = path.join(libDir, 'jdk-21', 'bin', 'keytool')
       break
     default:
       console.error('Unsupported operating system:', process.platform)
@@ -188,23 +201,21 @@ export async function getPortableJavaPath(libDir: string) {
 
   hasPortableJava && console.log(`Attempting to find Java at: ${javaPath}`)
 
-  return hasPortableJava ? javaPath : null
+  return hasPortableJava ? { javaPath, keytoolPath } : null
 }
 
 export async function getToolPaths(libPath: string) {
   const platform = process.platform
-  let apksignerFileName
+  const apksignerFileName = 'apksigner.jar'
   let zipalignFileName
 
   if (platform === 'win32') { // Windows
-    apksignerFileName = 'apksigner.bat'
     zipalignFileName = 'zipalign.exe'
   } else { // macOS, Linux
-    apksignerFileName = 'apksigner'
     zipalignFileName = 'zipalign'
   }
 
-  const apksignerPath = path.join(libPath, 'build-tools', apksignerFileName)
+  const apksignerPath = path.join(libPath, 'build-tools', 'lib', apksignerFileName)
   const zipalignPath = path.join(libPath, 'build-tools', zipalignFileName)
 
   const hasApksigner = await fs.access(apksignerPath)
@@ -313,7 +324,7 @@ export interface Keystore {
   keyPassword: string
 }
 
-export async function createKeystore(keystore: Keystore, validity: string, dname: string) {
+export async function createKeystore(keytoolPath: string, keystore: Keystore, validity: string, dname: string) {
   try {
     await fs.access(keystore.path)
     console.log(`Keystore exists at: ${keystore.path}`)
@@ -323,7 +334,7 @@ export async function createKeystore(keystore: Keystore, validity: string, dname
   }
 
   await executeCommand(
-    'keytool',
+    keytoolPath ?? 'keytool',
     [
       '-genkey',
       '-v',
@@ -341,14 +352,16 @@ export async function createKeystore(keystore: Keystore, validity: string, dname
 }
 
 export async function signApk(
+  javaPath: string,
   apksignerPath: string,
   keystore: Keystore,
   alignedApkPath: string,
   signedApkPath: string,
 ) {
   await executeCommand(
-    apksignerPath,
+    javaPath,
     [
+      '-jar', apksignerPath,
       'sign',
       '--ks', keystore.path,
       '--ks-key-alias', keystore.keyAlias,

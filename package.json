@@ -10,6 +10,7 @@
     "bun": "^1.2.14",
     "extract-zip": "^2.0.1",
     "node-fetch": "^3.3.2",
+    "tar": "^7.4.3",
     "typescript": "^5.8.3"
   },
   "scripts": {

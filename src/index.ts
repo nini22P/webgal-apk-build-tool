@@ -94,7 +94,6 @@ async function main() {
     password: 'android',
     keyPassword: 'android',
   }
-  await createKeystore(debugKeystore, '10000', 'CN=Android Debug,O=Android,C=US')
 
   await exportApk(projectInfo, gamePath, iconPath, outputPath, libPath, debugKeystore)
 
