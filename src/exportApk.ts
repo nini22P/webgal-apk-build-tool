@@ -144,7 +144,9 @@ const exportApk = async (
         'APK alignment'
       )
 
-    await createKeystore(keystore, '10000', 'CN=Android Debug,O=Android,C=US')
+    const hasKeystore = await fs.access(keystore.path) // 测试用
+      .then(() => true)
+      .catch(() => false)
 
     // 签名
     hasApksigner
@@ -316,6 +318,14 @@ export interface Keystore {
 }
 
 export async function createKeystore(keystore: Keystore, validity: string, dname: string) {
+  try {
+    await fs.access(keystore.path)
+    console.log(`Keystore exists at: ${keystore.path}`)
+    return
+  } catch (err) {
+    console.log(`Keystore not found at: ${keystore.path}`)
+  }
+
   await executeCommand(
     'keytool',
     [

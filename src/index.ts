@@ -87,12 +87,14 @@ async function main() {
   const outputPath = path.join(executableDir, 'output')
   const libPath = path.join(executableDir, 'lib')
 
+  // 测试用
   const debugKeystore: Keystore = {
-    path: path.join(outputPath, 'build', 'debug.keystore'),
+    path: path.join(executableDir, 'debug.keystore'),
     keyAlias: 'androiddebugkey',
     password: 'android',
     keyPassword: 'android',
   }
+  await createKeystore(debugKeystore, '10000', 'CN=Android Debug,O=Android,C=US')
 
   await exportApk(projectInfo, gamePath, iconPath, outputPath, libPath, debugKeystore)
 

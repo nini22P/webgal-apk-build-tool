@@ -14,7 +14,8 @@
   },
   "scripts": {
     "build": "bun build ./src/index.ts --compile --outfile dist/webgal-apk-build-tool",
-    "download-lib": "bun run download-lib.ts"
+    "download-lib": "bun run download-lib.ts",
+    "build-with-download": "bun run download-lib.ts && bun build ./src/index.ts --compile --outfile dist/webgal-apk-build-tool"
   },
   "author": "",
   "license": "ISC",
