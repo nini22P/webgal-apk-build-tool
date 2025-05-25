@@ -144,10 +144,6 @@ const exportApk = async (
         'APK alignment'
       )
 
-    const hasKeystore = await fs.access(keystore.path) // 测试用
-      .then(() => true)
-      .catch(() => false)
-
     // 签名
     hasApksigner
       && hasKeystore
