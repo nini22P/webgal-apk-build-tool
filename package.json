@@ -1,0 +1,22 @@
+{
+  "name": "webgal-apk-build-tool",
+  "version": "1.0.0",
+  "main": "src/index.ts",
+  "dependencies": {
+    "undici-types": "7.10.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.21",
+    "bun": "^1.2.14",
+    "extract-zip": "^2.0.1",
+    "node-fetch": "^3.3.2",
+    "typescript": "^5.8.3"
+  },
+  "scripts": {
+    "build": "bun build ./src/index.ts --compile --outfile dist/webgal-apk-build-tool",
+    "download-lib": "bun run download-lib.ts"
+  },
+  "author": "",
+  "license": "ISC",
+  "description": ""
+}
