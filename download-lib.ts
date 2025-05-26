@@ -5,32 +5,13 @@ import extract from 'extract-zip'
 import * as tar from 'tar'
 
 type Platform = 'windows' | 'mac' | 'linux'
+
 interface DownloadableFile {
   url: string
   fileName: string
 }
 
-let platform: Platform
-
-switch (process.platform) {
-  case 'win32':
-    platform = 'windows'
-    console.log('Detected Platform:', platform)
-    break
-  case 'darwin':
-    platform = 'mac'
-    console.log('Detected Platform:', platform)
-    break
-  case 'linux':
-    platform = 'linux'
-    console.log('Detected Platform:', platform)
-    break
-  default:
-    console.error('Unsupported operating system:', process.platform)
-    process.exit(1)
-}
-
-async function downloadFile(url: string, destPath: string): Promise<void> {
+const downloadFile = async (url: string, destPath: string): Promise<void> => {
   console.log(`Download ${url} to ${destPath}`)
   try {
     const response = await fetch(url)
@@ -50,20 +31,9 @@ async function downloadFile(url: string, destPath: string): Promise<void> {
   }
 }
 
-async function downloadFiles(files: DownloadableFile[], destDir: string): Promise<void> {
-  for (const file of files) {
-    try {
-      console.log(`Downloading ${file.url} to ${path.join(destDir, file.fileName)}`);
-      await downloadFile(file.url, path.join(destDir, file.fileName));
-    } catch (error) {
-      console.error(`Error downloading file from ${file.url}. Aborting sequence.`, error);
-      throw error;
-    }
-  }
-}
-
-async function ensureDir(dirPath: string): Promise<void> {
+const ensureDir = async (dirPath: string): Promise<void> => {
   try {
+    await fs.rm(dirPath, { recursive: true, force: true })
     await fs.mkdir(dirPath, { recursive: true })
     console.log(`Ensured directory exists: ${dirPath}`)
   } catch (error) {
@@ -74,20 +44,24 @@ async function ensureDir(dirPath: string): Promise<void> {
   }
 }
 
-async function downloadJDK(destDir: string): Promise<void> {
+const downloadJDK = async (destDir: string, platform: Platform): Promise<void> => {
   const jdkUrl = `https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.7%2B6/OpenJDK21U-jdk_x64_${platform}_hotspot_21.0.7_6.${platform === 'windows' ? 'zip' : 'tar.gz'}`
   const jdkFileName = `jdk-21.${platform === 'windows' ? 'zip' : 'tar.gz'}`
   const jdkDestPath = path.join(destDir, jdkFileName)
 
   await downloadFile(jdkUrl, jdkDestPath)
-  platform === 'windows'
-    ? await extractZip(jdkDestPath, destDir)
-    : await extractTarGz(jdkDestPath, destDir)
+
+  if (platform === 'windows') {
+    await extractZip(jdkDestPath, destDir)
+  } else {
+    await extractTarGz(jdkDestPath, destDir)
+  }
+
   await fs.rename(path.join(destDir, `jdk-21.0.7+6`), path.join(destDir, 'jdk-21'))
   await fs.rm(jdkDestPath)
 }
 
-async function downloadBuildTools(destDir: string): Promise<void> {
+const downloadBuildTools = async (destDir: string, platform: Platform): Promise<void> => {
   const buildToolsUrl = `https://dl.google.com/android/repository/build-tools_r36_${platform}.zip`
   const buildToolsFileName = 'build-tools.zip'
   const buildToolsDestPath = path.join(destDir, buildToolsFileName)
@@ -98,48 +72,98 @@ async function downloadBuildTools(destDir: string): Promise<void> {
   await fs.rm(buildToolsDestPath)
 }
 
-async function extractZip(zipPath: string, destDir: string): Promise<void> {
+const extractZip = async (zipPath: string, destDir: string): Promise<void> => {
   try {
     await extract(zipPath, { dir: destDir })
     console.log('Extraction complete')
-  } catch (err) {
-    console.error('Error extracting zip:', err)
+  } catch (error) {
+    console.error('Error extracting zip:', error)
   }
 }
 
-async function extractTarGz(tarGzPath: string, destDir: string): Promise<void> {
+const extractTarGz = async (tarGzPath: string, destDir: string): Promise<void> => {
   try {
     await tar.x({
       file: tarGzPath,
-      cwd: destDir,
-    });
-    console.log(`Extraction of ${tarGzPath} to ${destDir} complete.`);
-  } catch (err) {
-    console.error(`Error extracting tar.gz ${tarGzPath}:`, err);
-    throw err;
+      cwd: destDir
+    })
+    console.log(`Extraction of ${tarGzPath} to ${destDir} complete.`)
+  } catch (error) {
+    console.error(`Error extracting tar.gz ${tarGzPath}:`, error)
+    throw error
   }
 }
 
-async function main() {
-  const libDir = path.join(__dirname, 'dist', 'lib')
+const main = async (): Promise<void> => {
+  let platform: Platform
+
+  switch (process.platform) {
+    case 'win32':
+      platform = 'windows'
+      console.log('Detected Platform:', platform)
+      break
+    case 'darwin':
+      platform = 'mac'
+      console.log('Detected Platform:', platform)
+      break
+    case 'linux':
+      platform = 'linux'
+      console.log('Detected Platform:', platform)
+      break
+    default:
+      console.error('Unsupported operating system:', process.platform)
+      process.exit(1)
+  }
+
+  const args = process.argv.slice(2)
+
+  let libDir: string | null = null
+
+  if (args.includes('--dev')) {
+    console.log('Downloading for development')
+    libDir = path.join(__dirname, 'node_modules', 'electron', 'dist', 'lib')
+  } else {
+    console.log('Downloading for production')
+    if (args.includes('--win')) {
+      libDir = path.join(__dirname, 'dist', 'win-unpacked', 'lib')
+      platform = 'windows'
+    }
+    if (args.includes('--mac')) {
+      libDir = path.join(__dirname, 'dist', 'mac-unpacked', 'Contents', 'lib')
+      platform = 'mac'
+    }
+    if (args.includes('--linux')) {
+      libDir = path.join(__dirname, 'dist', 'linux-unpacked', 'lib')
+      platform = 'linux'
+    }
+  }
+
+  if (!libDir) {
+    console.error('No lib dir specified')
+    process.exit(1)
+  }
+
   await ensureDir(libDir)
 
   const files: DownloadableFile[] = [
     {
       url: 'https://github.com/REAndroid/APKEditor/releases/download/V1.4.3/APKEditor-1.4.3.jar',
-      fileName: 'APKEditor.jar',
+      fileName: 'APKEditor.jar'
     },
     {
       url: 'https://github.com/OpenWebGAL/WebGAL-Android/releases/latest/download/webgal-template.apk',
-      fileName: 'webgal-template.apk',
-    },
+      fileName: 'webgal-template.apk'
+    }
   ]
 
-  await downloadFiles(files, libDir)
-  await downloadBuildTools(libDir)
-  await downloadJDK(libDir)
+  for (const file of files) {
+    await downloadFile(file.url, path.join(libDir, file.fileName))
+  }
 
-  console.log('All files processed in sequence.');
+  await downloadBuildTools(libDir, platform)
+  await downloadJDK(libDir, platform)
+
+  console.log('All files processed in sequence.')
 }
 
 main()
