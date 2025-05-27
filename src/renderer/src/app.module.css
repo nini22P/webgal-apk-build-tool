@@ -1,7 +1,25 @@
 .app {
+  display: flex;
+  gap: 0.5rem;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.container {
   padding: 0.5rem;
   display: flex;
   gap: 0.5rem;
   flex-direction: column;
-  height: 100%;
+  overflow: auto;
+  flex-grow: 1;
+}
+
+.inputContainer {
+  width:100%;
+  display: flex;
+  gap: 0.5rem;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
 }

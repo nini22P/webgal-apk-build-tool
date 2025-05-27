@@ -1,57 +1,126 @@
 import fs from 'fs/promises'
 import path from 'path'
 import { getBuildToolsPaths } from './buildTools'
-import { Keystore, signApk } from './signer'
+import { getKeyProperties, signApk } from './signer'
 import { copyDir, getLibPath, replaceTextInFolder } from './files'
 import { getJavaPaths } from './java'
 import { executeCommand } from './exec'
-import { ProjectInfo } from './project'
+import { BuildInfo, BuildResult, ProgressCallback } from './types'
+import { getProjectInfo, isValidPackageName } from './project'
 
-export interface BuildInfo {
-  projectInfo: ProjectInfo
-  gamePath: string
-  outputPath: string
-  libPath: string
-  keystore?: Keystore | null
-}
+const noOpProgress: ProgressCallback = () => {}
 
-export interface Result {
-  success: boolean
-  message: string
-  error?: unknown
-}
+export const buildApk = async (
+  projectPath: string,
+  onProgress: ProgressCallback = noOpProgress
+): Promise<BuildResult> => {
+  onProgress({ message: '正在初始化...', stage: 'INITIALIZING', percentage: 0 })
 
-export const buildApk = async (gamePath: string): Promise<Result> => {
   const libPath = getLibPath()
-  const buildInfo: BuildInfo = {
-    projectInfo: {
-      appName: 'WebGAL',
-      packageName: 'com.webgal.game',
-      versionName: '1.0',
-      versionCode: 1
-    },
-    gamePath,
-    outputPath: path.join(gamePath, '..', '..', '..', 'Exported_Games'),
-    libPath,
-    keystore: null
+
+  const projectInfo = await getProjectInfo(projectPath)
+
+  onProgress({ message: '正在检查项目信息...', stage: 'RUNNING', percentage: 5 })
+
+  if (!projectInfo) {
+    onProgress({ message: '未找到项目信息', stage: 'ERROR', percentage: 100 })
+    return {
+      success: false,
+      message: ''
+    }
   }
-  console.log(buildInfo)
+
+  if (projectInfo.appName === null || projectInfo.appName.length === 0) {
+    onProgress({ message: '未找到应用名', stage: 'ERROR', percentage: 100 })
+    return {
+      success: false,
+      message: 'App name not found'
+    }
+  }
+
+  if (!isValidPackageName(projectInfo.packageName)) {
+    onProgress({ message: '包名格式错误', stage: 'ERROR', percentage: 100 })
+    return {
+      success: false,
+      message: 'Package name is invalid'
+    }
+  }
+
+  if (projectInfo.packageName === null || projectInfo.packageName.length === 0) {
+    onProgress({ message: '未找到包名', stage: 'ERROR', percentage: 100 })
+    return {
+      success: false,
+      message: 'Package name not found'
+    }
+  }
+
+  if (projectInfo.versionName === null || projectInfo.versionName.length === 0) {
+    onProgress({ message: '未找到版本名', stage: 'ERROR', percentage: 100 })
+    return {
+      success: false,
+      message: 'Version name not found'
+    }
+  }
+
+  if (projectInfo.versionCode === null || projectInfo.versionCode === 0) {
+    onProgress({ message: '未找到版本号', stage: 'ERROR', percentage: 100 })
+    return {
+      success: false,
+      message: 'Version code error'
+    }
+  }
+
+  let keystore = await getKeyProperties(projectPath)
+
+  if (
+    !keystore ||
+    keystore.storeFile.length === 0 ||
+    keystore.storePassword.length === 0 ||
+    keystore.keyAlias.length === 0 ||
+    keystore.keyPassword.length === 0
+  ) {
+    onProgress({ message: '未找到签名信息', stage: 'WARNING', percentage: 10 })
+    console.error('\nKeystore info missing, skip signing')
+    keystore = null
+  }
+
+  const buildInfo: BuildInfo = {
+    projectInfo,
+    projectPath,
+    outputPath: path.join(
+      projectPath,
+      '..',
+      '..',
+      '..',
+      'Exported_Games',
+      projectPath.split(path.sep).pop()!,
+      'apk'
+    ),
+    libPath,
+    keystore,
+    onProgress
+  }
+
+  onProgress({ message: '正在准备编译...', stage: 'RUNNING', percentage: 10 })
+
   return await build(buildInfo)
 }
 
 const build = async ({
   projectInfo,
-  gamePath,
+  projectPath,
   outputPath,
   libPath,
-  keystore
-}: BuildInfo): Promise<Result> => {
+  keystore,
+  onProgress
+}: BuildInfo): Promise<BuildResult> => {
   const apkEditorPath = path.join(libPath, 'APKEditor.jar')
 
   try {
     await fs.access(apkEditorPath)
   } catch (error) {
     console.error(`APKEditor not found at: ${apkEditorPath}`)
+    onProgress({ message: '未找到 APKEditor', stage: 'ERROR', percentage: 100 })
     return {
       success: false,
       message: 'APKEditor not found',
@@ -65,6 +134,7 @@ const build = async ({
     await fs.access(webgalTemplateApkPath)
   } catch (error) {
     console.error(`WebGAL template not found at: ${webgalTemplateApkPath}`)
+    onProgress({ message: '未找到 WebGAL 模板', stage: 'ERROR', percentage: 100 })
     return {
       success: false,
       message: 'WebGAL template not found',
@@ -76,6 +146,7 @@ const build = async ({
 
   if (!javaPath || !keytoolPath) {
     console.error('JDK not found')
+    onProgress({ message: '未找到 JDK', stage: 'ERROR', percentage: 100 })
     return {
       success: false,
       message: 'JDK not found'
@@ -86,6 +157,7 @@ const build = async ({
 
   if (!apksignerPath || !zipalignPath) {
     console.error('Build tools not found')
+    onProgress({ message: '未找到构建工具', stage: 'ERROR', percentage: 100 })
     return {
       success: false,
       message: 'Build tools not found'
@@ -102,11 +174,14 @@ const build = async ({
   const signedApkPath = path.join(outputPath, `${apkFileName}-signed.apk`)
   const idsigPath = signedApkPath + '.idsig'
 
+  console.log('\x1b[96m')
   console.log(`App name: ${appName}`)
   console.log(`Package name: ${packageName}`)
   console.log(`Version: ${versionName} (${versionCode})`)
   console.log(`Output directory: ${outputPath}`)
-  console.log('')
+  console.log('\x1b[0m')
+
+  onProgress({ message: '正在清理编译目录...', stage: 'RUNNING', percentage: 10 })
 
   try {
     await fs.rm(buildPath, { recursive: true, force: true })
@@ -118,6 +193,8 @@ const build = async ({
     /* empty */
   }
 
+  onProgress({ message: '正在反编译 APK...', stage: 'RUNNING', percentage: 20 })
+
   // 反编译apk
   try {
     await executeCommand(
@@ -127,6 +204,7 @@ const build = async ({
     )
   } catch (error) {
     console.error('APK decompilation failed', error)
+    onProgress({ message: 'APK 反编译失败', stage: 'ERROR', percentage: 100 })
     return {
       success: false,
       message: 'APK decompilation failed',
@@ -134,7 +212,9 @@ const build = async ({
     }
   }
 
-  console.log('Starting to replace assets...')
+  console.log('\x1b[93m%s\x1b[0m', '\nStarting to replace assets...\n')
+
+  onProgress({ message: '正在替换资源...', stage: 'RUNNING', percentage: 30 })
 
   try {
     // 替换包名
@@ -207,9 +287,8 @@ const build = async ({
     console.log('Files moved successfully')
 
     // 复制引擎
-
     const engineSrcPath = path.join(
-      gamePath,
+      projectPath,
       '..',
       '..',
       '..',
@@ -220,6 +299,8 @@ const build = async ({
     const engineDestPath = path.join(buildPath, 'root', 'assets', 'webgal')
 
     console.log(`Copying engine from ${engineSrcPath} to ${engineDestPath}`)
+    onProgress({ message: '正在复制引擎...', stage: 'RUNNING', percentage: 35 })
+
     await copyDir(engineSrcPath, engineDestPath)
     console.log('Engine copied successfully')
 
@@ -232,15 +313,17 @@ const build = async ({
     await fs.rm(path.join(engineDestPath, 'icons'), { recursive: true, force: true })
 
     // 复制游戏资源
-    const webgalSrcPath = path.join(gamePath, 'game')
+    const webgalSrcPath = path.join(projectPath, 'game')
     const webgalDestPath = path.join(buildPath, 'root', 'assets', 'webgal', 'game')
 
     console.log(`Copying game resources from ${webgalSrcPath} to ${webgalDestPath}`)
+    onProgress({ message: '正在复制游戏资源...', stage: 'RUNNING', percentage: 40 })
+
     await copyDir(webgalSrcPath, webgalDestPath)
     console.log('Game resources copied successfully')
 
     // 复制图标
-    const iconsPath = path.join(gamePath, 'icons', 'android')
+    const iconsPath = path.join(projectPath, 'icons', 'android')
     const resPath = path.join(buildPath, 'resources', 'package_1', 'res')
 
     const iconSrcIsExists = await fs
@@ -250,18 +333,22 @@ const build = async ({
 
     if (iconSrcIsExists) {
       console.log(`Copying icons from ${iconsPath} to ${resPath}`)
+      onProgress({ message: '正在复制图标...', stage: 'RUNNING', percentage: 45 })
       await copyDir(iconsPath, resPath)
     } else {
       console.log('Skip copying icons')
     }
   } catch (error) {
     console.error('Error replacing assets', error)
+    onProgress({ message: '替换资源失败', stage: 'ERROR', percentage: 100 })
     return {
       success: false,
       message: 'Error replacing assets',
       error
     }
   }
+
+  onProgress({ message: '正在编译 APK...', stage: 'RUNNING', percentage: 50 })
 
   // 编译apk
   try {
@@ -275,12 +362,15 @@ const build = async ({
     // await fs.rm(buildPath, { recursive: true, force: true })
   } catch (error) {
     console.error('Build APK failed', error)
+    onProgress({ message: '编译 APK 失败', stage: 'ERROR', percentage: 100 })
     return {
       success: false,
       message: 'Build APK failed',
       error
     }
   }
+
+  onProgress({ message: '正在对齐 APK...', stage: 'RUNNING', percentage: 80 })
 
   // 对齐
   if (zipalignPath) {
@@ -292,6 +382,7 @@ const build = async ({
       )
     } catch (error) {
       console.error('APK alignment failed', error)
+      onProgress({ message: 'APK 对齐失败', stage: 'ERROR', percentage: 100 })
       return {
         success: false,
         message: 'APK alignment failed',
@@ -303,12 +394,15 @@ const build = async ({
     await fs.rename(alignedApkPath, unsignedApkPath)
   }
 
+  onProgress({ message: '正在签名 APK...', stage: 'RUNNING', percentage: 90 })
+
   // 签名
   if (javaPath && apksignerPath && keystore) {
     try {
       await signApk(javaPath, apksignerPath, keystore, unsignedApkPath, signedApkPath)
     } catch (error) {
       console.error('APK signing failed', error)
+      onProgress({ message: 'APK 签名失败', stage: 'ERROR', percentage: 100 })
       return {
         success: false,
         message: 'APK signing failed',
@@ -317,11 +411,22 @@ const build = async ({
     }
 
     await fs.rm(unsignedApkPath, { force: true })
+
+    onProgress({ message: '已完成', stage: 'COMPLETED', percentage: 100 })
+
+    return {
+      success: true,
+      message: 'Build successful',
+      path: signedApkPath
+    }
   }
+
+  onProgress({ message: '已完成', stage: 'COMPLETED', percentage: 100 })
 
   return {
     success: true,
-    message: 'Build successful'
+    message: 'Build successful',
+    path: unsignedApkPath
   }
 }
 

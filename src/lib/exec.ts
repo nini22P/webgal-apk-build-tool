@@ -5,19 +5,18 @@ export const executeCommand = async (
   args: string[],
   description = ''
 ): Promise<void> => {
-  console.log(`Executing: ${description || command} ${args.join(' ')}`)
+  console.log(
+    '\x1b[93m%s\x1b[0m',
+    `\n${command} ${args.join(' ')}\n`.replace(/(pass:)\S+/g, '$1***')
+  )
 
   return new Promise<void>((resolve, reject) => {
     try {
       const process = spawn(command, args)
 
-      process.stdout.on('data', (data) => {
-        console.log(data.toString())
-      })
+      process.stdout.on('data', (data) => console.log(data.toString()))
 
-      process.stderr.on('data', (data) => {
-        console.error(data.toString())
-      })
+      process.stderr.on('data', (data) => console.error(data.toString()))
 
       process.on('close', (code) => {
         if (code !== 0) {

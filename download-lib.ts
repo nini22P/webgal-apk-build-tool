@@ -122,6 +122,8 @@ const main = async (): Promise<void> => {
   if (args.includes('--dev')) {
     console.log('Downloading for development')
     libDir = path.join(__dirname, 'node_modules', 'electron', 'dist', 'lib')
+  } else if (args.includes('--cli')) {
+    libDir = path.join(__dirname, 'dist', 'cli', 'lib')
   } else {
     console.log('Downloading for production')
     if (args.includes('--win')) {

@@ -1,11 +1,7 @@
 import path from 'path'
 import fs from 'fs/promises'
 import { findExecutable } from './exec'
-
-export interface BuildToolsPaths {
-  apksignerPath: string | null
-  zipalignPath: string | null
-}
+import { BuildToolsPaths } from './types'
 
 export const getBuildToolsPaths = async (libPath: string): Promise<BuildToolsPaths> => {
   let apksignerPath: string | null = null

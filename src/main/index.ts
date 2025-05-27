@@ -1,14 +1,17 @@
 import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
-import { join } from 'path'
+import path, { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
-import { buildApk, Result } from '../lib/build'
+import { buildApk } from '../lib/build'
+import { BuildResult, Keystore, ProgressCallback, ProjectInfo } from '../lib/types'
+import { getProjectInfo, saveProjectInfo } from '../lib/project'
+import { getKeyProperties, saveKeyProperties } from '../lib/signer'
 
 function createWindow(): void {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
-    width: 900,
-    height: 670,
+    width: 540,
+    height: 740,
     show: false,
     autoHideMenuBar: true,
     ...(process.platform === 'linux' ? { icon } : {}),
@@ -57,27 +60,101 @@ app.whenReady().then(() => {
     return folderPaths
   })
 
-  ipcMain.handle('build-apk', async (_event, path: string | null): Promise<Result> => {
+  ipcMain.handle('build-apk', async (_event, path: string | null): Promise<BuildResult> => {
     if (!path)
       return {
         success: false,
         message: 'No path specified'
       }
-    const result = await buildApk(path)
-    console.log(result)
+
+    const window = BrowserWindow.fromWebContents(_event.sender)
+
+    if (!window) {
+      return {
+        success: false,
+        message: 'Could not find the sender window.'
+      }
+    }
+
+    const onProgress: ProgressCallback = (progressData): void => {
+      window.webContents.send('build-progress', progressData)
+    }
+
+    const result = await buildApk(path, onProgress)
     return result
   })
 
+  ipcMain.handle(
+    'get-project-info',
+    async (_event, path: string | null): Promise<ProjectInfo | null> => {
+      if (!path) return null
+      return await getProjectInfo(path)
+    }
+  )
+
+  ipcMain.handle(
+    'get-key-properties',
+    async (_event, path: string | null): Promise<Keystore | null> => {
+      if (!path) return null
+      return await getKeyProperties(path)
+    }
+  )
+
+  ipcMain.handle(
+    'save-project-info',
+    async (_event, path: string | null, projectInfo: ProjectInfo): Promise<void> => {
+      if (!path) return
+      await saveProjectInfo(path, projectInfo)
+    }
+  )
+
+  ipcMain.handle(
+    'save-key-properties',
+    async (_event, path: string | null, keystore: Keystore): Promise<void> => {
+      if (!path) return
+      await saveKeyProperties(path, keystore)
+    }
+  )
+
   ipcMain.handle('select-keystore', async () => {
     const filePaths = dialog.showOpenDialogSync({
-      properties: ['openFile', 'promptToCreate'],
+      properties: ['openFile'],
       filters: [
-        { name: 'Keystore Files', extensions: ['keystore'] },
-        { name: 'Keystore Files', extensions: ['jks'] },
+        { name: 'Keystore File', extensions: ['jks'] },
         { name: 'All Files', extensions: ['*'] }
       ]
     })
     return filePaths
+  })
+
+  ipcMain.handle('select-save-keystore', async () => {
+    const filePaths = dialog.showSaveDialogSync({
+      properties: ['createDirectory'],
+      filters: [
+        { name: 'Keystore File', extensions: ['jks'] },
+        { name: 'All Files', extensions: ['*'] }
+      ]
+    })
+    return filePaths
+  })
+
+  ipcMain.handle('open-output-folder', async (_event, projectPath) => {
+    if (!projectPath) return
+    const outputPath = path.join(
+      projectPath,
+      '..',
+      '..',
+      '..',
+      'Exported_Games',
+      projectPath.split(path.sep).pop()!,
+      'apk'
+    )
+    console.log(outputPath)
+    try {
+      await shell.openPath(outputPath)
+    } catch (error) {
+      console.error(`Error opening folder '${outputPath}':`, error)
+    }
   })
 
   createWindow()

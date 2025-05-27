@@ -1,11 +1,7 @@
 import path from 'path'
 import fs from 'fs/promises'
 import { findExecutable } from './exec'
-
-export interface JavaPaths {
-  javaPath: string | null
-  keytoolPath: string | null
-}
+import { JavaPaths } from './types'
 
 export const getJavaPaths = async (libDir: string): Promise<JavaPaths> => {
   let javaPath: string | null = null
@@ -15,7 +11,6 @@ export const getJavaPaths = async (libDir: string): Promise<JavaPaths> => {
   keytoolPath = await findExecutable('keytool')
 
   if (javaPath && keytoolPath) {
-    console.log('JDK found in system path')
     return { javaPath, keytoolPath }
   }
 
