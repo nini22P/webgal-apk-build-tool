@@ -45,6 +45,7 @@ export interface ProjectInfo {
   packageName: string
   versionName: string
   versionCode: number
+  path?: string
 }
 
 export interface Keystore {
@@ -52,4 +53,15 @@ export interface Keystore {
   storePassword: string
   keyAlias: string
   keyPassword: string
+  validity?: number
+  dname?: Dname
+}
+
+export interface Dname {
+  firstAndLastName?: string
+  organizationalUnit?: string
+  organization?: string
+  cityOrLocality?: string
+  stateOrProvince?: string
+  countryCode?: string
 }

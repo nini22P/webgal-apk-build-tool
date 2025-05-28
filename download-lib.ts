@@ -119,31 +119,43 @@ const main = async (): Promise<void> => {
 
   let libDir: string | null = null
 
+  if (args.includes('--win')) {
+    platform = 'windows'
+  }
+  if (args.includes('--mac')) {
+    platform = 'mac'
+  }
+  if (args.includes('--linux')) {
+    platform = 'linux'
+  }
+
+  switch (platform) {
+    case 'windows':
+      libDir = path.join(__dirname, 'dist', 'win-unpacked', 'lib')
+      break
+    case 'mac':
+      libDir = path.join(__dirname, 'dist', 'mac-unpacked', 'Contents', 'lib')
+      break
+    case 'linux':
+      libDir = path.join(__dirname, 'dist', 'linux-unpacked', 'lib')
+      break
+  }
+
   if (args.includes('--dev')) {
     console.log('Downloading for development')
     libDir = path.join(__dirname, 'node_modules', 'electron', 'dist', 'lib')
-  } else if (args.includes('--cli')) {
+  }
+
+  if (args.includes('--cli')) {
     libDir = path.join(__dirname, 'dist', 'cli', 'lib')
-  } else {
-    console.log('Downloading for production')
-    if (args.includes('--win')) {
-      libDir = path.join(__dirname, 'dist', 'win-unpacked', 'lib')
-      platform = 'windows'
-    }
-    if (args.includes('--mac')) {
-      libDir = path.join(__dirname, 'dist', 'mac-unpacked', 'Contents', 'lib')
-      platform = 'mac'
-    }
-    if (args.includes('--linux')) {
-      libDir = path.join(__dirname, 'dist', 'linux-unpacked', 'lib')
-      platform = 'linux'
-    }
   }
 
   if (!libDir) {
     console.error('No lib dir specified')
     process.exit(1)
   }
+
+  console.log('Downloading to:', libDir)
 
   await ensureDir(libDir)
 

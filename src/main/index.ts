@@ -4,14 +4,16 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { buildApk } from '../lib/build'
 import { BuildResult, Keystore, ProgressCallback, ProjectInfo } from '../lib/types'
-import { getProjectInfo, saveProjectInfo } from '../lib/project'
-import { getKeyProperties, saveKeyProperties } from '../lib/signer'
+import { getAllProjectInfo, getProjectInfo, saveProjectInfo } from '../lib/project'
+import { createKeystore, getKeyProperties, saveKeyProperties } from '../lib/signer'
+import { getLibPath } from '../lib/files'
+import { getJavaPaths } from '../lib/java'
 
 function createWindow(): void {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
-    width: 540,
-    height: 740,
+    width: 720,
+    height: 720,
     show: false,
     autoHideMenuBar: true,
     ...(process.platform === 'linux' ? { icon } : {}),
@@ -57,7 +59,9 @@ app.whenReady().then(() => {
     const folderPaths = dialog.showOpenDialogSync({
       properties: ['openDirectory']
     })
-    return folderPaths
+    const projectInfo = folderPaths ? await getProjectInfo(folderPaths[0]) : null
+
+    return projectInfo ? folderPaths : null
   })
 
   ipcMain.handle('build-apk', async (_event, path: string | null): Promise<BuildResult> => {
@@ -89,6 +93,14 @@ app.whenReady().then(() => {
     async (_event, path: string | null): Promise<ProjectInfo | null> => {
       if (!path) return null
       return await getProjectInfo(path)
+    }
+  )
+
+  ipcMain.handle(
+    'get-all-project-info',
+    async (_event, path: string | null): Promise<ProjectInfo[]> => {
+      if (!path) return []
+      return await getAllProjectInfo(path)
     }
   )
 
@@ -137,6 +149,16 @@ app.whenReady().then(() => {
     })
     return filePaths
   })
+
+  ipcMain.handle(
+    'create-keystore',
+    async (_event, keystore: Keystore): Promise<Keystore | null> => {
+      const libPath = getLibPath()
+      const { keytoolPath } = await getJavaPaths(libPath)
+      if (!keytoolPath) return null
+      return await createKeystore(keytoolPath, keystore, true)
+    }
+  )
 
   ipcMain.handle('open-output-folder', async (_event, projectPath) => {
     if (!projectPath) return

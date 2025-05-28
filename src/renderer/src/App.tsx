@@ -1,69 +1,77 @@
 import { useEffect, useMemo, useState } from 'react'
 import styles from './app.module.css'
-import { Button, Field, InfoLabel, Input, ProgressBar, Text } from '@fluentui/react-components'
+import {
+  Button,
+  Combobox,
+  Dialog,
+  DialogActions,
+  DialogBody,
+  DialogContent,
+  DialogSurface,
+  DialogTitle,
+  DialogTrigger,
+  Field,
+  InfoLabel,
+  Input,
+  Option,
+  ProgressBar,
+  Text
+} from '@fluentui/react-components'
 import { BuildResult, Keystore, ProgressData, ProjectInfo } from 'src/lib/types'
 import useSWR from 'swr'
-import { debounce } from 'lodash'
-
-const _saveProjectInfo = (projectPath: string | null, projectInfo: ProjectInfo | null): void => {
-  if (!projectPath || !projectInfo) return
-  window.electron.ipcRenderer.invoke('save-project-info', projectPath, projectInfo)
-}
-
-const saveProjectInfo = debounce(_saveProjectInfo, 500)
-
-const _saveKeyProperties = (projectPath: string | null, keystore: Keystore | null): void => {
-  if (!projectPath || !keystore) return
-  window.electron.ipcRenderer.invoke('save-key-properties', projectPath, keystore)
-}
-
-const saveKeyProperties = debounce(_saveKeyProperties, 500)
+import useLocalStorage from './hooks/useLocalStorage'
+import {
+  buildApk,
+  createKeystore,
+  openOutputFolder,
+  saveKeyProperties,
+  saveProjectInfo,
+  selectFolder,
+  selectKeystore,
+  selectSaveKeystore
+} from './invoke'
 
 const App = (): React.JSX.Element => {
+  const emptyKeystore: Keystore = {
+    storeFile: '',
+    storePassword: '',
+    keyAlias: '',
+    keyPassword: '',
+    validity: 25,
+    dname: {
+      firstAndLastName: '',
+      organizationalUnit: '',
+      organization: '',
+      cityOrLocality: '',
+      stateOrProvince: '',
+      countryCode: ''
+    }
+  }
+
   const [projectPath, setProjectPath] = useState<string | null>(null)
   const [projectInfo, setProjectInfo] = useState<ProjectInfo | null>(null)
+  const [allProjectInfo, setAllprojectInfo] = useState<ProjectInfo[]>([])
   const [keystore, setKeystore] = useState<Keystore | null>(null)
+  const [newKeystore, setNewKeystore] = useState<Keystore>(emptyKeystore)
   const [progress, setProgress] = useState<ProgressData | null>(null)
   const [buildResult, setBuildResult] = useState<BuildResult | null>(null)
+  const [open, setOpen] = useState(false)
+  const [isFileDialogActive, setIsFileDialogActive] = useState(false)
+
+  useLocalStorage('projectPath', projectPath, setProjectPath)
 
   const isValidPackageName = (packageName: string): boolean => {
-    const regex = /^(?=[a-z0-9])(?=.*\.)[a-z0-9_.]*[a-z0-9]$/
+    const regex = /^(?=[a-z])(?=.*\.)[a-z0-9_.]*[a-z0-9]$/
     return regex.test(packageName)
   }
 
-  const selectFolder = async (): Promise<string | null> => {
-    const result = await window.electron.ipcRenderer.invoke('select-folder')
-
-    if (!result || result.length === 0) {
-      return null
-    }
-
-    return result[0]
-  }
-
-  const selectKeystore = async (): Promise<string | null> => {
-    const result = await window.electron.ipcRenderer.invoke('select-keystore')
-
-    if (!result || result.length === 0) {
-      return null
-    }
-
-    return result[0]
-  }
-
-  const selectSaveKeystore = async (): Promise<string | null> =>
-    await window.electron.ipcRenderer.invoke('select-save-keystore')
-
   const build = async (): Promise<void> => {
     setBuildResult(null)
-    const result = await window.electron.ipcRenderer.invoke('build-apk', projectPath)
+    if (projectPath === null) return
+    const result = await buildApk(projectPath)
     console.log(result)
     setBuildResult(result)
-    openOutputFolder()
-  }
-
-  const openOutputFolder = async (): Promise<void> => {
-    await window.electron.ipcRenderer.invoke('open-output-folder', projectPath)
+    openOutputFolder(projectPath)
   }
 
   const disableBuild = useMemo(
@@ -78,9 +86,9 @@ const App = (): React.JSX.Element => {
       projectInfo.versionCode === 0 ||
       !keystore ||
       keystore.storeFile.length === 0 ||
-      keystore.storePassword.length === 0 ||
+      keystore.storePassword.length < 6 ||
       keystore.keyAlias.length === 0 ||
-      keystore.keyPassword.length === 0 ||
+      keystore.keyPassword.length < 6 ||
       progress?.stage === 'RUNNING' ||
       progress?.stage === 'INITIALIZING',
     [projectPath, projectInfo, keystore, progress]
@@ -101,6 +109,18 @@ const App = (): React.JSX.Element => {
       const keystore = await window.electron.ipcRenderer.invoke('get-key-properties', path)
       setKeystore(keystore)
       return keystore
+    },
+    {
+      revalidateOnFocus: !isFileDialogActive
+    }
+  )
+
+  useSWR(
+    projectPath ? ['get-all-project-info', `${projectPath}/..`] : null,
+    async ([_event, path]: [string, string]): Promise<ProjectInfo[]> => {
+      const info = await window.electron.ipcRenderer.invoke('get-all-project-info', path)
+      setAllprojectInfo(info)
+      return info
     }
   )
 
@@ -116,12 +136,32 @@ const App = (): React.JSX.Element => {
       <div className={styles.container}>
         <Text>项目路径</Text>
         <div className={styles.inputContainer}>
-          <Input
-            type="text"
+          <Combobox
+            key={projectPath}
             style={{ flex: 1 }}
             value={projectPath || ''}
-            onChange={(_ev, data) => setProjectPath(data.value)}
-          />
+            selectedOptions={projectPath ? [projectPath] : []}
+            onOptionSelect={(_ev, data) => data.optionValue && setProjectPath(data.optionValue)}
+          >
+            {allProjectInfo.map((item) => (
+              <Option key={item.path} value={item.path} text={item.appName}>
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    paddingLeft: '0.25rem',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    textWrap: 'nowrap'
+                  }}
+                >
+                  <div style={{ fontWeight: '500' }}>{item.appName}</div>
+                  <div style={{ color: 'gray', fontSize: '0.8rem' }}>{item.packageName}</div>
+                  {item.path}
+                </div>
+              </Option>
+            ))}
+          </Combobox>
           <Button
             appearance="primary"
             style={{ minWidth: '0' }}
@@ -156,10 +196,11 @@ const App = (): React.JSX.Element => {
 
                 <Text>
                   包名
-                  <InfoLabel info="包名只能包含小写字母、数字、下划线（_）或点（.），以小写字母或数字开头。包含至少一个点，且点不能在开头或结尾。" />
+                  <InfoLabel info="包名只能包含小写字母、数字、下划线（_）或点（.），以小写字母开头。包含至少一个点（.），且点（.）不能在开头或结尾。" />
                 </Text>
                 <div className={styles.inputContainer}>
                   <Input
+                    spellCheck={false}
                     type="text"
                     style={{ flex: 1 }}
                     value={projectInfo.packageName}
@@ -211,56 +252,277 @@ const App = (): React.JSX.Element => {
 
             {keystore && projectInfo && (
               <>
-                <Text>签名文件</Text>
+                <Text>密钥库文件路径</Text>
                 <div className={styles.inputContainer}>
                   <Input
                     type="text"
                     style={{ flex: 1 }}
                     value={keystore.storeFile}
                     onChange={(_ev, data) => {
-                      const newKeystore = { ...keystore, storeFile: data.value }
-                      setKeystore(newKeystore)
-                      saveKeyProperties(projectPath, newKeystore)
+                      setKeystore({ ...keystore, storeFile: data.value })
+                      saveKeyProperties(projectPath, { ...keystore, storeFile: data.value })
                     }}
                   />
-                  <Button
-                    appearance="primary"
-                    style={{ minWidth: '0' }}
-                    onClick={async () => {
-                      const result = await selectSaveKeystore()
-                      if (!result) return
-                      const newKeystore = { ...keystore, storeFile: result }
-                      setKeystore(newKeystore)
-                      saveKeyProperties(projectPath, newKeystore)
+
+                  <Dialog
+                    open={open}
+                    onOpenChange={(_event, isOpen) => {
+                      setOpen(isOpen.open)
+                      setNewKeystore(emptyKeystore)
                     }}
                   >
-                    新建
-                  </Button>
+                    <DialogTrigger disableButtonEnhancement>
+                      <Button appearance="primary" style={{ minWidth: '0' }}>
+                        新建
+                      </Button>
+                    </DialogTrigger>
+                    <DialogSurface>
+                      <DialogBody>
+                        <DialogTitle>新建密钥库文件</DialogTitle>
+                        <DialogContent className={styles.container}>
+                          <Text>
+                            密钥库文件路径 <span style={{ color: 'red' }}>*</span>
+                          </Text>
+                          <div className={styles.inputContainer}>
+                            <Input
+                              type="text"
+                              style={{ flex: 1 }}
+                              value={newKeystore.storeFile}
+                              onChange={(_ev, data) => {
+                                setNewKeystore({ ...newKeystore, storeFile: data.value })
+                              }}
+                            />
+                            <Button
+                              appearance="primary"
+                              style={{ minWidth: '0' }}
+                              onClick={async () => {
+                                const result = await selectSaveKeystore()
+                                if (!result) return
+                                setNewKeystore({ ...newKeystore, storeFile: result })
+                              }}
+                            >
+                              选择
+                            </Button>
+                          </div>
+
+                          <Text>
+                            密钥库文件密码 <InfoLabel info={'密码长度至少6位'} required />
+                          </Text>
+                          <div className={styles.inputContainer}>
+                            <Input
+                              type="password"
+                              style={{ flex: 1 }}
+                              value={newKeystore.storePassword}
+                              onChange={(_ev, data) => {
+                                setNewKeystore({ ...newKeystore, storePassword: data.value })
+                              }}
+                            />
+                          </div>
+
+                          <Text>
+                            密钥别名 <span style={{ color: 'red' }}>*</span>
+                          </Text>
+                          <div className={styles.inputContainer}>
+                            <Input
+                              type="text"
+                              style={{ flex: 1 }}
+                              value={newKeystore.keyAlias}
+                              onChange={(_ev, data) => {
+                                setNewKeystore({ ...newKeystore, keyAlias: data.value })
+                              }}
+                            />
+                          </div>
+
+                          <Text>
+                            密钥密码
+                            <InfoLabel info={'密码长度至少6位'} required />
+                          </Text>
+                          <div className={styles.inputContainer}>
+                            <Input
+                              type="password"
+                              style={{ flex: 1 }}
+                              value={newKeystore.keyPassword}
+                              onChange={(_ev, data) => {
+                                setNewKeystore({ ...newKeystore, keyPassword: data.value })
+                              }}
+                            />
+                          </div>
+
+                          <Text>
+                            有效期（年） <span style={{ color: 'red' }}>*</span>
+                          </Text>
+                          <div className={styles.inputContainer}>
+                            <Input
+                              type="number"
+                              step={1}
+                              min={1}
+                              style={{ flex: 1 }}
+                              value={newKeystore.validity?.toString()}
+                              onChange={(_ev, data) => {
+                                setNewKeystore({ ...newKeystore, validity: Number(data.value) })
+                              }}
+                            />
+                          </div>
+
+                          <Text>
+                            全名 <span style={{ color: 'red' }}>*</span>
+                          </Text>
+                          <div className={styles.inputContainer}>
+                            <Input
+                              type="text"
+                              style={{ flex: 1 }}
+                              value={newKeystore.dname?.firstAndLastName || ''}
+                              onChange={(_ev, data) => {
+                                setNewKeystore({
+                                  ...newKeystore,
+                                  dname: { ...newKeystore.dname, firstAndLastName: data.value }
+                                })
+                              }}
+                            />
+                          </div>
+
+                          <Text>组织单位</Text>
+                          <div className={styles.inputContainer}>
+                            <Input
+                              type="text"
+                              style={{ flex: 1 }}
+                              value={newKeystore.dname?.organizationalUnit || ''}
+                              onChange={(_ev, data) => {
+                                setNewKeystore({
+                                  ...newKeystore,
+                                  dname: { ...newKeystore.dname, organizationalUnit: data.value }
+                                })
+                              }}
+                            />
+                          </div>
+
+                          <Text>组织</Text>
+                          <div className={styles.inputContainer}>
+                            <Input
+                              type="text"
+                              style={{ flex: 1 }}
+                              value={newKeystore.dname?.organization || ''}
+                              onChange={(_ev, data) => {
+                                setNewKeystore({
+                                  ...newKeystore,
+                                  dname: { ...newKeystore.dname, organization: data.value }
+                                })
+                              }}
+                            />
+                          </div>
+
+                          <Text>城市或区域</Text>
+                          <div className={styles.inputContainer}>
+                            <Input
+                              type="text"
+                              style={{ flex: 1 }}
+                              value={newKeystore.dname?.cityOrLocality || ''}
+                              onChange={(_ev, data) => {
+                                setNewKeystore({
+                                  ...newKeystore,
+                                  dname: { ...newKeystore.dname, cityOrLocality: data.value }
+                                })
+                              }}
+                            />
+                          </div>
+
+                          <Text>省份或州</Text>
+                          <div className={styles.inputContainer}>
+                            <Input
+                              type="text"
+                              style={{ flex: 1 }}
+                              value={newKeystore.dname?.stateOrProvince || ''}
+                              onChange={(_ev, data) => {
+                                setNewKeystore({
+                                  ...newKeystore,
+                                  dname: { ...newKeystore.dname, stateOrProvince: data.value }
+                                })
+                              }}
+                            />
+                          </div>
+
+                          <Text>国家代码</Text>
+                          <div className={styles.inputContainer}>
+                            <Input
+                              type="text"
+                              style={{ flex: 1 }}
+                              value={newKeystore.dname?.countryCode || ''}
+                              onChange={(_ev, data) => {
+                                setNewKeystore({
+                                  ...newKeystore,
+                                  dname: { ...newKeystore.dname, countryCode: data.value }
+                                })
+                              }}
+                            />
+                          </div>
+                        </DialogContent>
+                        <DialogActions>
+                          <DialogTrigger disableButtonEnhancement>
+                            <Button onClick={() => setNewKeystore(emptyKeystore)}>取消</Button>
+                          </DialogTrigger>
+                          <Button
+                            appearance="primary"
+                            disabled={
+                              !newKeystore.storeFile ||
+                              !newKeystore.storePassword ||
+                              newKeystore.storePassword.length < 6 ||
+                              !newKeystore.keyAlias ||
+                              !newKeystore.keyPassword ||
+                              newKeystore.keyPassword.length < 6 ||
+                              !newKeystore.dname ||
+                              !newKeystore.dname.firstAndLastName
+                            }
+                            onClick={async () => {
+                              if (!newKeystore.storeFile) return
+                              if (!newKeystore.storePassword) return
+                              if (newKeystore.storePassword.length < 6) return
+                              if (!newKeystore.keyAlias) return
+                              if (!newKeystore.keyPassword) return
+                              if (newKeystore.keyPassword.length < 6) return
+                              if (!newKeystore.dname) return
+                              if (!newKeystore.dname.firstAndLastName) return
+
+                              const keystore = await createKeystore(newKeystore)
+                              if (!keystore) return
+                              setKeystore(keystore)
+                              saveKeyProperties(projectPath, keystore)
+                              setOpen(false)
+                            }}
+                          >
+                            创建
+                          </Button>
+                        </DialogActions>
+                      </DialogBody>
+                    </DialogSurface>
+                  </Dialog>
+
                   <Button
                     appearance="primary"
                     style={{ minWidth: '0' }}
                     onClick={async () => {
+                      setIsFileDialogActive(true)
                       const result = await selectKeystore()
                       if (!result) return
-                      const newKeystore = { ...keystore, storeFile: result }
-                      setKeystore(newKeystore)
-                      saveKeyProperties(projectPath, newKeystore)
+                      setKeystore({ ...keystore, storeFile: result })
+                      saveKeyProperties(projectPath, { ...keystore, storeFile: result })
+                      setTimeout(() => setIsFileDialogActive(false), 500)
                     }}
                   >
                     选择
                   </Button>
                 </div>
 
-                <Text>签名文件密码</Text>
+                <Text>
+                  密钥库文件密码 <InfoLabel info={'密码长度至少6位'} />
+                </Text>
                 <div className={styles.inputContainer}>
                   <Input
                     type="password"
                     style={{ flex: 1 }}
                     value={keystore.storePassword}
                     onChange={(_ev, data) => {
-                      const newKeystore = { ...keystore, storePassword: data.value }
-                      setKeystore(newKeystore)
-                      saveKeyProperties(projectPath, newKeystore)
+                      setKeystore({ ...keystore, storePassword: data.value })
+                      saveKeyProperties(projectPath, { ...keystore, storePassword: data.value })
                     }}
                   />
                 </div>
@@ -272,23 +534,23 @@ const App = (): React.JSX.Element => {
                     style={{ flex: 1 }}
                     value={keystore.keyAlias}
                     onChange={(_ev, data) => {
-                      const newKeystore = { ...keystore, keyAlias: data.value }
-                      setKeystore(newKeystore)
-                      saveKeyProperties(projectPath, newKeystore)
+                      setKeystore({ ...keystore, keyAlias: data.value })
+                      saveKeyProperties(projectPath, { ...keystore, keyAlias: data.value })
                     }}
                   />
                 </div>
 
-                <Text>密钥密码</Text>
+                <Text>
+                  密钥密码 <InfoLabel info={'密码长度至少6位'} />
+                </Text>
                 <div className={styles.inputContainer}>
                   <Input
                     type="password"
                     style={{ flex: 1 }}
                     value={keystore.keyPassword}
                     onChange={(_ev, data) => {
-                      const newKeystore = { ...keystore, keyPassword: data.value }
-                      setKeystore(newKeystore)
-                      saveKeyProperties(projectPath, newKeystore)
+                      setKeystore({ ...keystore, keyPassword: data.value })
+                      saveKeyProperties(projectPath, { ...keystore, keyPassword: data.value })
                     }}
                   />
                 </div>
@@ -298,7 +560,7 @@ const App = (): React.JSX.Element => {
         )}
       </div>
 
-      {projectPath && (
+      {projectPath && projectInfo && (
         <div
           style={{
             backgroundColor: '#f0f0f0',
@@ -319,17 +581,36 @@ const App = (): React.JSX.Element => {
               编译APK
             </Button>
             {progress && (
-              <Button appearance="primary" style={{ width: '100%' }} onClick={openOutputFolder}>
-                打开编译目录
+              <Button
+                appearance="primary"
+                style={{ width: '100%' }}
+                onClick={() => openOutputFolder(projectPath)}
+              >
+                打开输出目录
               </Button>
             )}
           </div>
 
           <Field
             validationMessage={`${progress?.message ?? ''} ${buildResult?.path ? `- 保存到 ${buildResult.path} ` : ''}`}
-            validationState="none"
+            validationState={
+              progress?.stage === 'ERROR'
+                ? 'error'
+                : progress?.stage === 'COMPLETED'
+                  ? 'success'
+                  : 'none'
+            }
           >
-            <ProgressBar value={(progress?.percentage ?? 0) / 100} />
+            <ProgressBar
+              value={(progress?.percentage ?? 0) / 100}
+              color={
+                progress?.stage === 'ERROR'
+                  ? 'error'
+                  : progress?.stage === 'COMPLETED'
+                    ? 'success'
+                    : 'brand'
+              }
+            />
           </Field>
         </div>
       )}

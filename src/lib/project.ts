@@ -39,7 +39,7 @@ export const getProjectInfo = async (projectPath: string): Promise<ProjectInfo |
       }
     }
 
-    console.log('Get project info', projectInfo)
+    projectInfo.path = projectPath
 
     return projectInfo
   } catch (error) {
@@ -82,6 +82,20 @@ export const saveProjectInfo = async (
   } catch (error) {
     console.error(`Error saving project info: ${error}`)
   }
+}
+
+export const getAllProjectInfo = async (gamesPath: string): Promise<ProjectInfo[]> => {
+  const games = await fs.readdir(gamesPath, { withFileTypes: true })
+  const projectInfos = await Promise.all(
+    games
+      .filter((game) => game.isDirectory())
+      .map(async (game) => {
+        const projectPath = path.join(gamesPath, game.name)
+        const projectInfo = await getProjectInfo(projectPath)
+        return projectInfo
+      })
+  )
+  return projectInfos.filter((info) => info !== null)
 }
 
 export const getGradleProjectInfo = async (projectPath: string): Promise<ProjectInfo | null> => {

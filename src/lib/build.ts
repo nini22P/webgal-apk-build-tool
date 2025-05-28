@@ -101,7 +101,7 @@ export const buildApk = async (
     onProgress
   }
 
-  onProgress({ message: '正在准备编译...', stage: 'RUNNING', percentage: 10 })
+  onProgress({ message: '正在准备...', stage: 'RUNNING', percentage: 10 })
 
   return await build(buildInfo)
 }
@@ -128,17 +128,29 @@ const build = async ({
     }
   }
 
-  const webgalTemplateApkPath = path.join(libPath, 'webgal-template.apk')
+  const webgalTemplateApkPaths = [
+    path.join(projectPath, '..', '..', '..', 'assets', 'templates', 'webgal-template.apk'),
+    path.join(libPath, 'webgal-template.apk')
+  ]
 
-  try {
-    await fs.access(webgalTemplateApkPath)
-  } catch (error) {
+  let webgalTemplateApkPath: string | null = null
+  for (const path of webgalTemplateApkPaths) {
+    try {
+      await fs.access(path)
+      webgalTemplateApkPath = path
+      console.log(`WebGAL template found at: ${webgalTemplateApkPath}`)
+      break
+    } catch (_error) {
+      /* empty */
+    }
+  }
+
+  if (!webgalTemplateApkPath) {
     console.error(`WebGAL template not found at: ${webgalTemplateApkPath}`)
     onProgress({ message: '未找到 WebGAL 模板', stage: 'ERROR', percentage: 100 })
     return {
       success: false,
-      message: 'WebGAL template not found',
-      error
+      message: 'WebGAL template not found'
     }
   }
 
@@ -193,7 +205,7 @@ const build = async ({
     /* empty */
   }
 
-  onProgress({ message: '正在反编译 APK...', stage: 'RUNNING', percentage: 20 })
+  onProgress({ message: '正在反编译模板 APK...', stage: 'RUNNING', percentage: 20 })
 
   // 反编译apk
   try {
@@ -333,7 +345,7 @@ const build = async ({
 
     if (iconSrcIsExists) {
       console.log(`Copying icons from ${iconsPath} to ${resPath}`)
-      onProgress({ message: '正在复制图标...', stage: 'RUNNING', percentage: 45 })
+      onProgress({ message: '正在复制图标...', stage: 'RUNNING', percentage: 60 })
       await copyDir(iconsPath, resPath)
     } else {
       console.log('Skip copying icons')
@@ -348,7 +360,7 @@ const build = async ({
     }
   }
 
-  onProgress({ message: '正在编译 APK...', stage: 'RUNNING', percentage: 50 })
+  onProgress({ message: '正在编译 APK...', stage: 'RUNNING', percentage: 70 })
 
   // 编译apk
   try {
@@ -402,7 +414,11 @@ const build = async ({
       await signApk(javaPath, apksignerPath, keystore, unsignedApkPath, signedApkPath)
     } catch (error) {
       console.error('APK signing failed', error)
-      onProgress({ message: 'APK 签名失败', stage: 'ERROR', percentage: 100 })
+      onProgress({
+        message: 'APK 签名失败，请检查签名信息是否正确',
+        stage: 'ERROR',
+        percentage: 100
+      })
       return {
         success: false,
         message: 'APK signing failed',

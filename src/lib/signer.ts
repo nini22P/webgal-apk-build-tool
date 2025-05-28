@@ -2,7 +2,7 @@ import fs from 'fs/promises'
 import { executeCommand } from './exec'
 import { getJavaPaths } from './java'
 import path from 'path'
-import { Keystore } from './types'
+import { Dname, Keystore } from './types'
 
 export const getKeyProperties = async (projectPath: string): Promise<Keystore | null> => {
   const keystore: Keystore = {
@@ -42,6 +42,8 @@ export const getKeyProperties = async (projectPath: string): Promise<Keystore | 
     }
   }
 
+  console.log('Get key properties at: ', keyPropertiesPath)
+
   return keystore
 }
 
@@ -58,18 +60,56 @@ export const saveKeyProperties = async (projectPath: string, keystore: Keystore)
   }
 }
 
+export const dnameToString = (dname: Dname): string | null => {
+  const dnameParts: string[] = []
+
+  if (dname.firstAndLastName?.length === 0) return null
+
+  if (dname.firstAndLastName && dname.firstAndLastName.length > 0) {
+    dnameParts.push(`CN=${dname.firstAndLastName}`)
+  }
+  if (dname.organizationalUnit && dname.organizationalUnit.length > 0) {
+    dnameParts.push(`OU=${dname.organizationalUnit}`)
+  }
+  if (dname.organization && dname.organization.length > 0) {
+    dnameParts.push(`O=${dname.organization}`)
+  }
+  if (dname.cityOrLocality && dname.cityOrLocality.length > 0) {
+    dnameParts.push(`L=${dname.cityOrLocality}`)
+  }
+  if (dname.stateOrProvince && dname.stateOrProvince.length > 0) {
+    dnameParts.push(`ST=${dname.stateOrProvince}`)
+  }
+  if (dname.countryCode && dname.countryCode.length > 0) {
+    dnameParts.push(`C=${dname.countryCode}`)
+  }
+  return dnameParts.join(',')
+}
+
 export const createKeystore = async (
   keytoolPath: string,
   keystore: Keystore,
-  validity: string,
-  dname: string
+  overWrite: boolean = false
 ): Promise<Keystore | null> => {
   const hasKeystore = await fs
     .access(keystore.storeFile)
     .then(() => true)
     .catch(() => false)
 
-  if (hasKeystore) return keystore
+  if (hasKeystore) {
+    if (!overWrite) return null
+    await fs.rm(keystore.storeFile, { force: true })
+  }
+
+  if (!keystore.validity) return null
+
+  const validity = (keystore.validity * 365).toString()
+
+  if (!keystore.dname) return null
+
+  const dname = dnameToString(keystore.dname)
+
+  if (!dname) return null
 
   try {
     await executeCommand(
@@ -96,6 +136,7 @@ export const createKeystore = async (
       ],
       'Keystore creation'
     )
+    console.log('Keystore created successfully at:', keystore.storeFile)
   } catch (error) {
     console.error('Keystore creation failed', error)
     return null
@@ -156,5 +197,5 @@ export const createDebugKeystore = async (libPath: string): Promise<Keystore | n
     return null
   }
 
-  return await createKeystore(keytoolPath, keystore, '10000', 'CN=Android Debug,O=Android,C=US')
+  return await createKeystore(keytoolPath, keystore)
 }
