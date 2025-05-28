@@ -1,4 +1,4 @@
-appId: com.electron.app
+appId: com.openwebgal.webgal-apk-build-tool
 productName: webgal-apk-build-tool
 directories:
   buildResources: build
