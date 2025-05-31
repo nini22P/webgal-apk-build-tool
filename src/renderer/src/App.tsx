@@ -436,7 +436,7 @@ const App = (): React.JSX.Element => {
                           </div>
 
                           <Text>
-                            {t.full_name} <span style={{ color: 'red' }}>*</span>
+                            {t.first_and_last_name} <span style={{ color: 'red' }}>*</span>
                           </Text>
                           <div className={styles.inputContainer}>
                             <Input
@@ -667,7 +667,7 @@ const App = (): React.JSX.Element => {
           </div>
 
           <Field
-            validationMessage={`${progress?.message ?? ''} ${buildResult?.path ? `- ${t.saved_to} ${buildResult.path} ` : ''}`}
+            validationMessage={`${progress?.message ? t[progress.message] : ''} ${buildResult?.path ? `- ${t.saved_to} ${buildResult.path} ` : ''}`}
             validationState={
               progress?.stage === 'ERROR'
                 ? 'error'

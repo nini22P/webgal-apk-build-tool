@@ -1,3 +1,5 @@
+import { Translations } from '../locales/i18n'
+
 export interface BuildInfo {
   projectInfo: ProjectInfo
   projectPath: string
@@ -23,7 +25,7 @@ export type BuildStage =
   | 'COMPLETED'
 
 export interface ProgressData {
-  message: string
+  message: keyof Translations
   stage: BuildStage
   percentage: number
 }

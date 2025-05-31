@@ -1,5 +1,5 @@
 import en from './en'
-import zhCn from './zh'
+import zhCn from './zhCn'
 
 export interface Language {
   name: string
@@ -30,6 +30,20 @@ export interface Translations {
   build_apk: string
   open_output_folder: string
 
+  create_keystore_dialog_title: string
+  validity_years: string
+  first_and_last_name: string
+  organizational_unit: string
+  organization: string
+  city_or_locality: string
+  state_or_province: string
+  country_code: string
+  create: string
+  cancel: string
+  required_field: string
+  saved_to: string
+  error_opening_folder: string
+
   initializing: string
   checking_project_info: string
   project_info_not_found: string
@@ -49,34 +63,17 @@ export interface Translations {
   apk_decompilation_failed: string
   replacing_assets: string
   copying_engine: string
-  copying_game_resources: string
+  copying_game_assets: string
   copying_icons: string
   skip_copying_icons: string
   replacing_assets_failed: string
-  compiling_apk: string
+  building_apk: string
   build_apk_failed: string
   aligning_apk: string
   apk_alignment_failed: string
   signing_apk: string
   apk_signing_failed_check_info: string
   completed: string
-  build_successful: string
-  no_path_specified: string
-  could_not_find_sender_window: string
-
-  create_keystore_dialog_title: string
-  validity_years: string
-  full_name: string
-  organizational_unit: string
-  organization: string
-  city_or_locality: string
-  state_or_province: string
-  country_code: string
-  create: string
-  cancel: string
-  required_field: string
-  saved_to: string
-  error_opening_folder: string
 }
 
 export function getTranslations(language: Language): Translations {
