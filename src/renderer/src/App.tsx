@@ -13,10 +13,13 @@ import {
   Field,
   InfoLabel,
   Input,
+  Link,
   Option,
   ProgressBar,
-  Text
+  Text,
+  Title3
 } from '@fluentui/react-components'
+import { version } from '~build/package';
 import { BuildResult, Keystore, ProgressData, ProjectInfo } from 'src/lib/types'
 import useSWR from 'swr'
 import useLocalStorage from './hooks/useLocalStorage'
@@ -131,9 +134,31 @@ const App = (): React.JSX.Element => {
     })
   }, [])
 
+  useEffect(() => {
+    document.title = `WebGAL APK 编译工具 ${version}`
+  }, [])
+
   return (
     <div className={styles.app}>
       <div className={styles.container}>
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            padding: '0 0.5rem 0.5rem 0.25rem'
+          }}
+        >
+          <Title3>WebGAL APK 编译工具 {version}</Title3>
+          <Link
+            href="https://github.com/OpenWebGAL/webgal-apk-build-tool"
+            title="https://github.com/OpenWebGAL/webgal-apk-build-tool"
+            target="_blank"
+          >
+            GitHub
+          </Link>
+        </div>
         <Text>项目路径</Text>
         <div className={styles.inputContainer}>
           <Combobox

@@ -20,12 +20,12 @@
     "build:mac": "electron-vite build && electron-builder --mac --dir",
     "build:linux": "electron-vite build && electron-builder --linux --dir",
     "build:cli": "bun build src/lib/cli.ts --compile --outfile dist/cli/webgal-apk-build-tool",
-    "download-lib": "npx tsx download-lib.ts",
-    "download-lib:dev": "npx tsx download-lib.ts --dev",
-    "download-lib:win": "npx tsx download-lib.ts --win",
-    "download-lib:mac": "npx tsx download-lib.ts --mac",
-    "download-lib:linux": "npx tsx download-lib.ts --linux",
-    "download-lib:cli": "npx tsx download-lib.ts --cli"
+    "download-lib": "tsx download-lib.ts",
+    "download-lib:dev": "tsx download-lib.ts --dev",
+    "download-lib:win": "tsx download-lib.ts --win",
+    "download-lib:mac": "tsx download-lib.ts --mac",
+    "download-lib:linux": "tsx download-lib.ts --linux",
+    "download-lib:cli": "tsx download-lib.ts --cli"
   },
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.1",
@@ -36,6 +36,7 @@
     "@electron-toolkit/eslint-config-ts": "^3.0.0",
     "@electron-toolkit/tsconfig": "^1.0.1",
     "@fluentui/react-components": "^9.64.0",
+    "@fluentui/react-icons": "^2.0.302",
     "@types/lodash": "^4.17.17",
     "@types/node": "^22.14.1",
     "@types/react": "18.3.22",
@@ -56,7 +57,9 @@
     "react-dom": "18.3.1",
     "swr": "^2.3.3",
     "tar": "^7.4.3",
+    "tsx": "^4.19.4",
     "typescript": "^5.8.3",
+    "unplugin-info": "^1.2.2",
     "vite": "^6.2.6"
   }
 }
