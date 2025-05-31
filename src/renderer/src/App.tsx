@@ -14,12 +14,18 @@ import {
   InfoLabel,
   Input,
   Link,
+  Menu,
+  MenuItem,
+  MenuList,
+  MenuPopover,
+  MenuTrigger,
   Option,
   ProgressBar,
   Text,
   Title3
 } from '@fluentui/react-components'
-import { version } from '~build/package';
+import { bundleIcon, LocalLanguageFilled, LocalLanguageRegular } from '@fluentui/react-icons'
+import { version } from '~build/package'
 import { BuildResult, Keystore, ProgressData, ProjectInfo } from 'src/lib/types'
 import useSWR from 'swr'
 import useLocalStorage from './hooks/useLocalStorage'
@@ -33,6 +39,9 @@ import {
   selectKeystore,
   selectSaveKeystore
 } from './invoke'
+import { getTranslations, Language, languages } from '../../locales/i18n'
+
+const LocalLanguageIcon = bundleIcon(LocalLanguageFilled, LocalLanguageRegular)
 
 const App = (): React.JSX.Element => {
   const emptyKeystore: Keystore = {
@@ -61,7 +70,11 @@ const App = (): React.JSX.Element => {
   const [open, setOpen] = useState(false)
   const [isFileDialogActive, setIsFileDialogActive] = useState(false)
 
-  useLocalStorage('projectPath', projectPath, setProjectPath)
+  const [language, setLanguage] = useState<Language>(languages.zhCn)
+  const t = useMemo(() => getTranslations(language), [language])
+
+  useLocalStorage('language', languages.zhCn, language, setLanguage)
+  useLocalStorage('projectPath', null, projectPath, setProjectPath)
 
   const isValidPackageName = (packageName: string): boolean => {
     const regex = /^(?=[a-z])(?=.*\.)[a-z0-9_.]*[a-z0-9]$/
@@ -135,8 +148,8 @@ const App = (): React.JSX.Element => {
   }, [])
 
   useEffect(() => {
-    document.title = `WebGAL APK 编译工具 ${version}`
-  }, [])
+    document.title = `${t.title} ${version}`
+  }, [t])
 
   return (
     <div className={styles.app}>
@@ -147,19 +160,51 @@ const App = (): React.JSX.Element => {
             flexDirection: 'row',
             justifyContent: 'space-between',
             alignItems: 'center',
-            padding: '0 0.5rem 0.5rem 0.25rem'
+            padding: '0 0 0.5rem 0.25rem'
           }}
         >
-          <Title3>WebGAL APK 编译工具 {version}</Title3>
-          <Link
-            href="https://github.com/OpenWebGAL/webgal-apk-build-tool"
-            title="https://github.com/OpenWebGAL/webgal-apk-build-tool"
-            target="_blank"
+          <Title3>
+            {t.title} {version}
+          </Title3>
+          <div
+            style={{ display: 'flex', flexDirection: 'row', gap: '0.5rem', alignItems: 'center' }}
           >
-            GitHub
-          </Link>
+            <Link
+              href="https://github.com/OpenWebGAL/webgal-apk-build-tool"
+              title="https://github.com/OpenWebGAL/webgal-apk-build-tool"
+              target="_blank"
+              style={{ fontWeight: 500 }}
+            >
+              GitHub
+            </Link>
+            <Menu positioning={{ autoSize: true }}>
+              <MenuTrigger disableButtonEnhancement>
+                <Button icon={<LocalLanguageIcon />} appearance="subtle" style={{ minWidth: '0' }}>
+                  {language.name}
+                </Button>
+              </MenuTrigger>
+              <MenuPopover>
+                <MenuList>
+                  <MenuItem
+                    onClick={() => {
+                      setLanguage(languages.zhCn)
+                    }}
+                  >
+                    简体中文
+                  </MenuItem>
+                  <MenuItem
+                    onClick={() => {
+                      setLanguage(languages.en)
+                    }}
+                  >
+                    English
+                  </MenuItem>
+                </MenuList>
+              </MenuPopover>
+            </Menu>
+          </div>
         </div>
-        <Text>项目路径</Text>
+        <Text>{t.project_path}</Text>
         <div className={styles.inputContainer}>
           <Combobox
             key={projectPath}
@@ -198,14 +243,14 @@ const App = (): React.JSX.Element => {
               setProgress(null)
             }}
           >
-            选择
+            {t.select}
           </Button>
         </div>
         {projectPath && (
           <>
             {projectInfo && (
               <>
-                <Text>应用名</Text>
+                <Text>{t.app_name}</Text>
                 <div className={styles.inputContainer}>
                   <Input
                     type="text"
@@ -220,8 +265,8 @@ const App = (): React.JSX.Element => {
                 </div>
 
                 <Text>
-                  包名
-                  <InfoLabel info="包名只能包含小写字母、数字、下划线（_）或点（.），以小写字母开头。包含至少一个点（.），且点（.）不能在开头或结尾。" />
+                  {t.package_name}
+                  <InfoLabel info={t.package_name_info} />
                 </Text>
                 <div className={styles.inputContainer}>
                   <Input
@@ -237,7 +282,7 @@ const App = (): React.JSX.Element => {
                   />
                 </div>
 
-                <Text>版本名</Text>
+                <Text>{t.version_name}</Text>
                 <div className={styles.inputContainer}>
                   <Input
                     type="text"
@@ -252,8 +297,8 @@ const App = (): React.JSX.Element => {
                 </div>
 
                 <Text>
-                  版本号
-                  <InfoLabel info="版本号为大于0的整数。应用安装新版本后，将无法直接覆盖安装旧版本；如需使用较低版本，必须先卸载当前已安装的高版本。" />
+                  {t.version_code}
+                  <InfoLabel info={t.version_code_info} />
                 </Text>
                 <div className={styles.inputContainer}>
                   <Input
@@ -277,7 +322,7 @@ const App = (): React.JSX.Element => {
 
             {keystore && projectInfo && (
               <>
-                <Text>密钥库文件路径</Text>
+                <Text>{t.keystore_file_path}</Text>
                 <div className={styles.inputContainer}>
                   <Input
                     type="text"
@@ -298,15 +343,15 @@ const App = (): React.JSX.Element => {
                   >
                     <DialogTrigger disableButtonEnhancement>
                       <Button appearance="primary" style={{ minWidth: '0' }}>
-                        新建
+                        {t.new}
                       </Button>
                     </DialogTrigger>
                     <DialogSurface>
                       <DialogBody>
-                        <DialogTitle>新建密钥库文件</DialogTitle>
+                        <DialogTitle>{t.create_keystore_dialog_title}</DialogTitle>
                         <DialogContent className={styles.container}>
                           <Text>
-                            密钥库文件路径 <span style={{ color: 'red' }}>*</span>
+                            {t.keystore_file_path} <span style={{ color: 'red' }}>*</span>
                           </Text>
                           <div className={styles.inputContainer}>
                             <Input
@@ -326,12 +371,13 @@ const App = (): React.JSX.Element => {
                                 setNewKeystore({ ...newKeystore, storeFile: result })
                               }}
                             >
-                              选择
+                              {t.select}
                             </Button>
                           </div>
 
                           <Text>
-                            密钥库文件密码 <InfoLabel info={'密码长度至少6位'} required />
+                            {t.keystore_password}{' '}
+                            <InfoLabel info={t.keystore_password_info} required />
                           </Text>
                           <div className={styles.inputContainer}>
                             <Input
@@ -345,7 +391,7 @@ const App = (): React.JSX.Element => {
                           </div>
 
                           <Text>
-                            密钥别名 <span style={{ color: 'red' }}>*</span>
+                            {t.key_alias} <span style={{ color: 'red' }}>*</span>
                           </Text>
                           <div className={styles.inputContainer}>
                             <Input
@@ -359,8 +405,8 @@ const App = (): React.JSX.Element => {
                           </div>
 
                           <Text>
-                            密钥密码
-                            <InfoLabel info={'密码长度至少6位'} required />
+                            {t.key_password}
+                            <InfoLabel info={t.keystore_password_info} required />
                           </Text>
                           <div className={styles.inputContainer}>
                             <Input
@@ -374,7 +420,7 @@ const App = (): React.JSX.Element => {
                           </div>
 
                           <Text>
-                            有效期（年） <span style={{ color: 'red' }}>*</span>
+                            {t.validity_years} <span style={{ color: 'red' }}>*</span>
                           </Text>
                           <div className={styles.inputContainer}>
                             <Input
@@ -390,7 +436,7 @@ const App = (): React.JSX.Element => {
                           </div>
 
                           <Text>
-                            全名 <span style={{ color: 'red' }}>*</span>
+                            {t.full_name} <span style={{ color: 'red' }}>*</span>
                           </Text>
                           <div className={styles.inputContainer}>
                             <Input
@@ -406,7 +452,7 @@ const App = (): React.JSX.Element => {
                             />
                           </div>
 
-                          <Text>组织单位</Text>
+                          <Text>{t.organizational_unit}</Text>
                           <div className={styles.inputContainer}>
                             <Input
                               type="text"
@@ -421,7 +467,7 @@ const App = (): React.JSX.Element => {
                             />
                           </div>
 
-                          <Text>组织</Text>
+                          <Text>{t.organization}</Text>
                           <div className={styles.inputContainer}>
                             <Input
                               type="text"
@@ -436,7 +482,7 @@ const App = (): React.JSX.Element => {
                             />
                           </div>
 
-                          <Text>城市或区域</Text>
+                          <Text>{t.city_or_locality}</Text>
                           <div className={styles.inputContainer}>
                             <Input
                               type="text"
@@ -451,7 +497,7 @@ const App = (): React.JSX.Element => {
                             />
                           </div>
 
-                          <Text>省份或州</Text>
+                          <Text>{t.state_or_province}</Text>
                           <div className={styles.inputContainer}>
                             <Input
                               type="text"
@@ -466,7 +512,7 @@ const App = (): React.JSX.Element => {
                             />
                           </div>
 
-                          <Text>国家代码</Text>
+                          <Text>{t.country_code}</Text>
                           <div className={styles.inputContainer}>
                             <Input
                               type="text"
@@ -483,7 +529,9 @@ const App = (): React.JSX.Element => {
                         </DialogContent>
                         <DialogActions>
                           <DialogTrigger disableButtonEnhancement>
-                            <Button onClick={() => setNewKeystore(emptyKeystore)}>取消</Button>
+                            <Button onClick={() => setNewKeystore(emptyKeystore)}>
+                              {t.cancel}
+                            </Button>
                           </DialogTrigger>
                           <Button
                             appearance="primary"
@@ -514,7 +562,7 @@ const App = (): React.JSX.Element => {
                               setOpen(false)
                             }}
                           >
-                            创建
+                            {t.create}
                           </Button>
                         </DialogActions>
                       </DialogBody>
@@ -533,12 +581,12 @@ const App = (): React.JSX.Element => {
                       setTimeout(() => setIsFileDialogActive(false), 500)
                     }}
                   >
-                    选择
+                    {t.select}
                   </Button>
                 </div>
 
                 <Text>
-                  密钥库文件密码 <InfoLabel info={'密码长度至少6位'} />
+                  {t.keystore_password} <InfoLabel info={t.keystore_password_info} />
                 </Text>
                 <div className={styles.inputContainer}>
                   <Input
@@ -552,7 +600,9 @@ const App = (): React.JSX.Element => {
                   />
                 </div>
 
-                <Text>密钥别名</Text>
+                <Text>
+                  {t.key_alias} <span style={{ color: 'red' }}>*</span>
+                </Text>
                 <div className={styles.inputContainer}>
                   <Input
                     type="text"
@@ -566,7 +616,7 @@ const App = (): React.JSX.Element => {
                 </div>
 
                 <Text>
-                  密钥密码 <InfoLabel info={'密码长度至少6位'} />
+                  {t.key_password} <InfoLabel info={t.keystore_password_info} />
                 </Text>
                 <div className={styles.inputContainer}>
                   <Input
@@ -603,7 +653,7 @@ const App = (): React.JSX.Element => {
               style={{ width: '100%' }}
               disabled={disableBuild}
             >
-              编译APK
+              {t.build_apk}
             </Button>
             {progress && (
               <Button
@@ -611,13 +661,13 @@ const App = (): React.JSX.Element => {
                 style={{ width: '100%' }}
                 onClick={() => openOutputFolder(projectPath)}
               >
-                打开输出目录
+                {t.open_output_folder}
               </Button>
             )}
           </div>
 
           <Field
-            validationMessage={`${progress?.message ?? ''} ${buildResult?.path ? `- 保存到 ${buildResult.path} ` : ''}`}
+            validationMessage={`${progress?.message ?? ''} ${buildResult?.path ? `- ${t.saved_to} ${buildResult.path} ` : ''}`}
             validationState={
               progress?.stage === 'ERROR'
                 ? 'error'
