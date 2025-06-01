@@ -32,7 +32,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: webgal-apk-build-tool-windows
+          name: webgal-apk-build-tool-windows.zip
           path: dist/webgal-apk-build-tool-windows.zip
 
   build-linux:
@@ -57,7 +57,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: webgal-apk-build-tool-linux
+          name: webgal-apk-build-tool-linux.zip
           path: dist/webgal-apk-build-tool-linux.zip
 
   release:
