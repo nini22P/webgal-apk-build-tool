@@ -81,12 +81,19 @@ jobs:
           VERSION="${{ steps.yq.outputs.result }}"
           TAG_NAME="v${VERSION}"
           echo "TAG_NAME=$TAG_NAME" >> "$GITHUB_OUTPUT"
+      - name: Check tag
+        uses: mukunku/tag-exists-action@v1.6.0
+        id: check-tag
+        with:
+          tag: ${{ steps.tag_name.outputs.TAG_NAME }}
       - name: Download artifact
+        if: steps.check-tag.outputs.exists == 'false'
         uses: actions/download-artifact@v4
         with:
           path: artifacts
           merge-multiple: true
       - name: Release
+        if: steps.check-tag.outputs.exists == 'false'
         uses: softprops/action-gh-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
