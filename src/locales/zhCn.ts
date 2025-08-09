@@ -1,7 +1,7 @@
 import { Translations } from './i18n'
 
 const zhCn: Translations = {
-  title: 'WebGAL APK 编译工具',
+  title: 'WebGAL APK 构建工具',
   project_path: '项目路径',
   select: '选择',
   app_name: '应用名',
@@ -18,7 +18,7 @@ const zhCn: Translations = {
   keystore_password_info: '密码长度至少6位。',
   key_alias: '密钥别名',
   key_password: '密钥密码',
-  build_apk: '编译APK',
+  build_apk: '构建APK',
   open_output_folder: '打开输出目录',
 
   create_keystore_dialog_title: '新建密钥库文件',
@@ -49,7 +49,7 @@ const zhCn: Translations = {
   webgal_template_not_found: '未找到 WebGAL 模板',
   jdk_not_found: '未找到 JDK',
   build_tools_not_found: '未找到构建工具',
-  cleaning_build_dir: '正在清理编译目录',
+  cleaning_build_dir: '正在清理构建目录',
   decompiling_template_apk: '正在反编译模板 APK',
   apk_decompilation_failed: 'APK 反编译失败',
   replacing_assets: '正在替换资源',
@@ -58,8 +58,8 @@ const zhCn: Translations = {
   copying_icons: '正在复制图标',
   skip_copying_icons: '跳过复制图标',
   replacing_assets_failed: '替换资源失败',
-  building_apk: '正在编译 APK',
-  build_apk_failed: '编译 APK 失败',
+  building_apk: '正在构建 APK',
+  build_apk_failed: '构建 APK 失败',
   aligning_apk: '正在对齐 APK',
   apk_alignment_failed: 'APK 对齐失败',
   signing_apk: '正在签名 APK',

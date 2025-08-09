@@ -1,7 +1,7 @@
 {
   "name": "webgal-apk-build-tool",
   "version": "1.0.0",
-  "description": "WebGAL APK Build Tool | WebGAL APK 编译工具",
+  "description": "WebGAL APK Build Tool | WebGAL APK 构建工具",
   "main": "./out/main/index.js",
   "author": "OpenWebGAL (https://github.com/OpenWebGAL)",
   "homepage": "https://github.com/OpenWebGAL/webgal-apk-build-tool",

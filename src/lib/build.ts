@@ -362,7 +362,7 @@ const build = async ({
 
   onProgress({ message: 'building_apk', stage: 'RUNNING', percentage: 70 })
 
-  // 编译apk
+  // 构建apk
   try {
     await executeCommand(
       javaPath ?? 'java',
