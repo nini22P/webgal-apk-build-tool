@@ -1,6 +1,5 @@
 import fs from 'fs/promises'
 import path from 'path'
-import { getBuildToolsPaths } from './buildTools'
 import { getKeyProperties, signApk } from './signer'
 import { copyDir, getLibPath, replaceTextInFolder } from './files'
 import { getJavaPaths } from './java'
@@ -8,7 +7,7 @@ import { executeCommand } from './exec'
 import { BuildInfo, BuildResult, ProgressCallback } from './types'
 import { getProjectInfo, isValidPackageName } from './project'
 
-const noOpProgress: ProgressCallback = () => {}
+const noOpProgress: ProgressCallback = () => { }
 
 export const buildApk = async (
   projectPath: string,
@@ -128,6 +127,20 @@ const build = async ({
     }
   }
 
+  const uberApkSignerPath = path.join(libPath, 'uber-apk-signer.jar')
+
+  try {
+    await fs.access(uberApkSignerPath)
+  } catch (error) {
+    console.error(`uber-apk-signer not found at: ${uberApkSignerPath}`)
+    onProgress({ message: 'uber_apk_signer_not_found', stage: 'ERROR', percentage: 100 })
+    return {
+      success: false,
+      message: 'uber-apk-signer not found',
+      error
+    }
+  }
+
   const webgalTemplateApkPaths = [
     path.join(projectPath, '..', '..', '..', 'assets', 'templates', 'webgal-template.apk'),
     path.join(libPath, 'webgal-template.apk')
@@ -165,26 +178,12 @@ const build = async ({
     }
   }
 
-  const { apksignerPath, zipalignPath } = await getBuildToolsPaths(libPath)
-
-  if (!apksignerPath || !zipalignPath) {
-    console.error('Build tools not found')
-    onProgress({ message: 'build_tools_not_found', stage: 'ERROR', percentage: 100 })
-    return {
-      success: false,
-      message: 'Build tools not found'
-    }
-  }
-
   const buildPath = path.join(outputPath, 'build')
 
   const { appName, packageName, versionName, versionCode } = projectInfo
 
   const apkFileName = [packageName, versionName, `build${versionCode}`].join('-')
   const unsignedApkPath = path.join(outputPath, `${apkFileName}-unsigned.apk`)
-  const alignedApkPath = path.join(outputPath, `${apkFileName}-aligned.apk`)
-  const signedApkPath = path.join(outputPath, `${apkFileName}-signed.apk`)
-  const idsigPath = signedApkPath + '.idsig'
 
   console.log('\x1b[96m')
   console.log(`App name: ${appName}`)
@@ -198,9 +197,6 @@ const build = async ({
   try {
     await fs.rm(buildPath, { recursive: true, force: true })
     await fs.rm(unsignedApkPath, { force: true })
-    await fs.rm(alignedApkPath, { force: true })
-    await fs.rm(signedApkPath, { force: true })
-    await fs.rm(idsigPath, { force: true })
   } catch (_) {
     /* empty */
   }
@@ -382,36 +378,12 @@ const build = async ({
     }
   }
 
-  onProgress({ message: 'aligning_apk', stage: 'RUNNING', percentage: 80 })
-
-  // 对齐
-  if (zipalignPath) {
-    try {
-      await executeCommand(
-        zipalignPath,
-        ['-v', '-p', '4', unsignedApkPath, alignedApkPath],
-        'APK alignment'
-      )
-    } catch (error) {
-      console.error('APK alignment failed', error)
-      onProgress({ message: 'apk_alignment_failed', stage: 'ERROR', percentage: 100 })
-      return {
-        success: false,
-        message: 'APK alignment failed',
-        error
-      }
-    }
-
-    await fs.rm(unsignedApkPath, { force: true })
-    await fs.rename(alignedApkPath, unsignedApkPath)
-  }
-
   onProgress({ message: 'signing_apk', stage: 'RUNNING', percentage: 90 })
 
   // 签名
-  if (javaPath && apksignerPath && keystore) {
+  if (javaPath && uberApkSignerPath && keystore) {
     try {
-      await signApk(javaPath, apksignerPath, keystore, unsignedApkPath, signedApkPath)
+      await signApk(javaPath, uberApkSignerPath, keystore, unsignedApkPath, outputPath)
     } catch (error) {
       console.error('APK signing failed', error)
       onProgress({
@@ -433,7 +405,7 @@ const build = async ({
     return {
       success: true,
       message: 'Build successful',
-      path: signedApkPath
+      path: outputPath
     }
   }
 
@@ -442,7 +414,7 @@ const build = async ({
   return {
     success: true,
     message: 'Build successful',
-    path: unsignedApkPath
+    path: outputPath
   }
 }
 

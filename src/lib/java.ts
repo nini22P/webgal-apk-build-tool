@@ -16,16 +16,16 @@ export const getJavaPaths = async (libDir: string): Promise<JavaPaths> => {
 
   switch (process.platform) {
     case 'win32':
-      javaPath = path.join(libDir, 'jdk-21', 'bin', 'java.exe')
-      keytoolPath = path.join(libDir, 'jdk-21', 'bin', 'keytool.exe')
+      javaPath = path.join(libDir, 'jdk', 'bin', 'java.exe')
+      keytoolPath = path.join(libDir, 'jdk', 'bin', 'keytool.exe')
       break
     case 'darwin':
-      javaPath = path.join(libDir, 'jdk-21', 'Contents', 'Home', 'bin', 'java')
-      keytoolPath = path.join(libDir, 'jdk-21', 'Contents', 'Home', 'bin', 'keytool')
+      javaPath = path.join(libDir, 'jdk', 'Contents', 'Home', 'bin', 'java')
+      keytoolPath = path.join(libDir, 'jdk', 'Contents', 'Home', 'bin', 'keytool')
       break
     case 'linux':
-      javaPath = path.join(libDir, 'jdk-21', 'bin', 'java')
-      keytoolPath = path.join(libDir, 'jdk-21', 'bin', 'keytool')
+      javaPath = path.join(libDir, 'jdk', 'bin', 'java')
+      keytoolPath = path.join(libDir, 'jdk', 'bin', 'keytool')
       break
     default:
       console.error('Unsupported operating system:', process.platform)

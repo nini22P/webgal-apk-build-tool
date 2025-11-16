@@ -57,31 +57,8 @@ const downloadJDK = async (destDir: string, platform: Platform): Promise<void> =
     await extractTarGz(jdkDestPath, destDir)
   }
 
-  await fs.rename(path.join(destDir, `jdk-21.0.7+6`), path.join(destDir, 'jdk-21'))
+  await fs.rename(path.join(destDir, `jdk-21.0.7+6`), path.join(destDir, 'jdk'))
   await fs.rm(jdkDestPath)
-}
-
-const downloadBuildTools = async (destDir: string, platform: Platform): Promise<void> => {
-  const platformInUrl = (()=>{
-    switch (platform) {
-      case 'windows':
-        return 'windows'
-      case 'mac':
-        return 'macosx'
-      case 'linux':
-        return 'linux'
-      default:
-        return 'windows'
-    }
-  })()
-  const buildToolsUrl = `https://dl.google.com/android/repository/build-tools_r36_${platformInUrl}.zip`
-  const buildToolsFileName = 'build-tools.zip'
-  const buildToolsDestPath = path.join(destDir, buildToolsFileName)
-
-  await downloadFile(buildToolsUrl, buildToolsDestPath)
-  await extractZip(buildToolsDestPath, destDir)
-  await fs.rename(path.join(destDir, 'android-16'), path.join(destDir, 'build-tools'))
-  await fs.rm(buildToolsDestPath)
 }
 
 const extractZip = async (zipPath: string, destDir: string): Promise<void> => {
@@ -177,6 +154,10 @@ const main = async (): Promise<void> => {
       fileName: 'APKEditor.jar'
     },
     {
+      url: 'https://github.com/patrickfav/uber-apk-signer/releases/download/v1.3.0/uber-apk-signer-1.3.0.jar',
+      fileName: 'uber-apk-signer.jar'
+    },
+    {
       url: 'https://github.com/OpenWebGAL/WebGAL-Android/releases/latest/download/webgal-template.apk',
       fileName: 'webgal-template.apk'
     }
@@ -186,7 +167,6 @@ const main = async (): Promise<void> => {
     await downloadFile(file.url, path.join(libDir, file.fileName))
   }
 
-  await downloadBuildTools(libDir, platform)
   await downloadJDK(libDir, platform)
 
   console.log('All files processed in sequence.')
