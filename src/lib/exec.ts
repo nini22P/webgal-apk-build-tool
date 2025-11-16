@@ -7,7 +7,10 @@ export const executeCommand = async (
 ): Promise<void> => {
   console.log(
     '\x1b[93m%s\x1b[0m',
-    `\n${command} ${args.join(' ')}\n`.replace(/((-(?:storepass|keypass))\s+|(pass:))\S+/g, '$1***')
+    `\n${command} ${args.join(' ')}\n`.replace(
+      /((--ksPass|--ksKeyPass|-storepass|-keypass)\s+|(pass:))\S+/g,
+      '$1***'
+    )
   )
 
   return new Promise<void>((resolve, reject) => {

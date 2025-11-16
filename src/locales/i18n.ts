@@ -55,9 +55,9 @@ export interface Translations {
   keystore_info_missing_skip_signing: string
   preparing: string
   apkeditor_not_found: string
+  uber_apk_signer_not_found: string
   webgal_template_not_found: string
   jdk_not_found: string
-  build_tools_not_found: string
   cleaning_build_dir: string
   decompiling_template_apk: string
   apk_decompilation_failed: string

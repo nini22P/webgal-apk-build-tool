@@ -147,36 +147,28 @@ export const createKeystore = async (
 
 export const signApk = async (
   javaPath: string,
-  apksignerPath: string,
+  uberApkSignerPath: string,
   keystore: Keystore,
-  alignedApkPath: string,
-  signedApkPath: string
+  inputPath: string,
+  outputPath: string
 ): Promise<void> => {
   await executeCommand(
     javaPath,
     [
       '-jar',
-      apksignerPath,
-      'sign',
+      uberApkSignerPath,
+      '-a',
+      inputPath,
+      '--out',
+      outputPath,
       '--ks',
       keystore.storeFile,
-      '--ks-key-alias',
+      '--ksAlias',
       keystore.keyAlias,
-      '--ks-pass',
-      `pass:${keystore.storePassword}`,
-      '--key-pass',
-      `pass:${keystore.keyPassword}`,
-      '--v1-signing-enabled',
-      'true',
-      '--v2-signing-enabled',
-      'true',
-      '--v3-signing-enabled',
-      'true',
-      '--v4-signing-enabled',
-      'true',
-      '--out',
-      signedApkPath,
-      alignedApkPath
+      '--ksPass',
+      keystore.storePassword,
+      '--ksKeyPass',
+      keystore.keyPassword
     ],
     'APK signing'
   )
