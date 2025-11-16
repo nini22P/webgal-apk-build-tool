@@ -371,7 +371,7 @@ const App = (): React.JSX.Element => {
                                 setNewKeystore({ ...newKeystore, storeFile: result })
                               }}
                             >
-                              {t.new}
+                              {t.select}
                             </Button>
                           </div>
 
